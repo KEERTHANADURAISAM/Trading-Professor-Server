@@ -4,16 +4,13 @@ const router = express.Router();
 // Import UserForm model (needed for debug and migration routes)
 const UserForm = require('../models/UserForm'); // Adjust path if needed
 
-// Import controllers
+// Import controllers - ONLY import what exists
 const { 
   submitForm, 
   getAllRegistrations, 
   getRegistrationById,
-  updateRegistrationStatus,
-  getRegistrationStats,
   downloadFile,
-  viewFile,
-  deleteRegistration
+  viewFile
 } = require('../controller/formControllers');
 
 // Import multer configuration
@@ -31,8 +28,29 @@ router.post('/submit', upload.fields([
 // 🔥 GET ALL REGISTRATIONS
 router.get('/all', getAllRegistrations);
 
-// 🔥 GET STATISTICS (Specific routes first)
-router.get('/stats/overview', getRegistrationStats);
+// 🔥 GET STATISTICS - Create a simple placeholder function
+router.get('/stats/overview', async (req, res) => {
+  try {
+    const totalRegistrations = await UserForm.countDocuments();
+    const pendingRegistrations = await UserForm.countDocuments({ status: 'pending' });
+    const approvedRegistrations = await UserForm.countDocuments({ status: 'approved' });
+    
+    res.json({
+      success: true,
+      data: {
+        total: totalRegistrations,
+        pending: pendingRegistrations,
+        approved: approvedRegistrations
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching stats',
+      error: error.message
+    });
+  }
+});
 
 // 🔥 DOWNLOAD FILES (Move BEFORE /:id route to avoid conflicts)
 router.get('/download/:id/:fileType', (req, res, next) => {
@@ -468,11 +486,76 @@ router.post('/debug/migration/execute', async (req, res) => {
 // 🔥 GET SINGLE REGISTRATION (Keep dynamic routes after specific ones)
 router.get('/:id', getRegistrationById);
 
-// 🔥 UPDATE REGISTRATION STATUS
-router.patch('/:id/status', updateRegistrationStatus);
+// 🔥 UPDATE REGISTRATION STATUS - Simple implementation
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status is required'
+      });
+    }
+    
+    const registration = await UserForm.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+    
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Registration not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Status updated successfully',
+      data: registration
+    });
+    
+  } catch (error) {
+    console.error('Status update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating status',
+      error: error.message
+    });
+  }
+});
 
-// 🔥 DELETE REGISTRATION
-router.delete('/:id', deleteRegistration);
+// 🔥 DELETE REGISTRATION - Simple implementation
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const registration = await UserForm.findByIdAndDelete(id);
+    
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Registration not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Registration deleted successfully'
+    });
+    
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting registration',
+      error: error.message
+    });
+  }
+});
 
 console.log('✅ Form routes configured with enhanced download functionality and migration tools');
 

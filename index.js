@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const registrationRoutes = require('./routes/formRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const tradingFormRoutes = require('./routes/CopyTrading');
 
 dotenv.config();
 
@@ -27,13 +28,14 @@ mongoose.connect(process.env.MONGO_URI, {
 }).then(() => console.log('✅ MongoDB connected'))
   .catch((err) => console.error('❌ MongoDB connection error:', err));
 
-  app.get('/', (req, res) => {
+app.get('/', (req, res) => {
   res.send('✨ Welcome to the Trading API Server');
 });
 
 // Routes
 app.use('/api/registration', registrationRoutes); // ✅ Use registrationRoutes
 app.use('/api/payments', paymentRoutes);
+app.use('/api/trading-form', tradingFormRoutes); // ✅ Fixed syntax
 
 // Server listen
 const PORT = process.env.PORT || 5000;

@@ -2,17 +2,33 @@ const UserForm = require('../models/UserForm');
 const path = require('path');
 const fs = require('fs');
 
-// 🔥 ENHANCED SUBMIT FORM WITH FILE HANDLING
+// 🔥 FIXED SUBMIT FORM - Store file paths as STRINGS
+// Enhanced submitForm function with detailed debugging
 const submitForm = async (req, res) => {
   try {
+    console.log('🔥 ========== NEW FORM SUBMISSION DEBUG ==========');
+    
+    // Log raw request data
+    console.log('📥 Raw req.body keys:', Object.keys(req.body));
+    console.log('📥 Raw req.body:', req.body);
+    console.log('📁 Raw req.files:', req.files);
+    console.log('📁 Files structure:', JSON.stringify(req.files, null, 2));
+
     let {
       firstName, lastName, email, phone,
       dateOfBirth, address, city, state,
       pincode, aadharNumber, agreeTerms, agreeMarketing, courseName
     } = req.body;
 
-    console.log('📥 Form submission received:', { firstName, lastName, email, courseName });
-    console.log('📁 Files received:', req.files);
+    console.log('📋 BEFORE SANITIZATION:');
+    console.log('  firstName:', JSON.stringify(firstName));
+    console.log('  lastName:', JSON.stringify(lastName));
+    console.log('  email:', JSON.stringify(email));
+    console.log('  phone:', JSON.stringify(phone));
+    console.log('  courseName:', JSON.stringify(courseName), 'Type:', typeof courseName);
+    console.log('  aadharNumber:', JSON.stringify(aadharNumber));
+    console.log('  agreeTerms:', JSON.stringify(agreeTerms), 'Type:', typeof agreeTerms);
+    console.log('  agreeMarketing:', JSON.stringify(agreeMarketing), 'Type:', typeof agreeMarketing);
 
     // Input sanitization and trimming
     firstName = firstName?.trim();
@@ -34,46 +50,85 @@ const submitForm = async (req, res) => {
       courseName = courseName.trim();
     }
 
-    // 🔥 ENHANCED FILE VALIDATION
-    const aadharFile = req.files?.aadharFile?.[0];
-    const signatureFile = req.files?.signatureFile?.[0];
+    console.log('📋 AFTER SANITIZATION:');
+    console.log('  firstName:', JSON.stringify(firstName));
+    console.log('  lastName:', JSON.stringify(lastName));
+    console.log('  email:', JSON.stringify(email));
+    console.log('  phone:', JSON.stringify(phone));
+    console.log('  courseName:', JSON.stringify(courseName));
+    console.log('  aadharNumber:', JSON.stringify(aadharNumber));
+    console.log('  agreeTerms:', JSON.stringify(agreeTerms));
 
-    console.log('📄 Aadhar file:', aadharFile?.filename);
-    console.log('✍️  Signature file:', signatureFile?.filename);
+    // 🔥 GET FILES FROM MULTER
+    const aadharFile = req.files?.aadharFile?.[0] || req.files?.aadhar?.[0];
+    const signatureFile = req.files?.signatureFile?.[0] || req.files?.signature?.[0];
 
-    // Enhanced validation
+    console.log('📄 Aadhar file found:', !!aadharFile, aadharFile?.filename || 'NO FILE');
+    console.log('✍️  Signature file found:', !!signatureFile, signatureFile?.filename || 'NO FILE');
+
+    // Enhanced validation with detailed logging
     const validationErrors = [];
 
+    console.log('🔍 STARTING VALIDATION:');
+
     // Basic field validation
-    if (!firstName) validationErrors.push('First name is required');
-    if (!lastName) validationErrors.push('Last name is required');
-    if (!email) validationErrors.push('Email is required');
-    if (!phone) validationErrors.push('Phone number is required');
-    if (!courseName) validationErrors.push('Course name is required');
-    if (!aadharNumber) validationErrors.push('Aadhar number is required');
+    if (!firstName) {
+      console.log('❌ VALIDATION: firstName missing');
+      validationErrors.push('First name is required');
+    }
+    if (!lastName) {
+      console.log('❌ VALIDATION: lastName missing');
+      validationErrors.push('Last name is required');
+    }
+    if (!email) {
+      console.log('❌ VALIDATION: email missing');
+      validationErrors.push('Email is required');
+    }
+    if (!phone) {
+      console.log('❌ VALIDATION: phone missing');
+      validationErrors.push('Phone number is required');
+    }
+    if (!courseName) {
+      console.log('❌ VALIDATION: courseName missing or empty');
+      validationErrors.push('Course name is required');
+    }
+    if (!aadharNumber) {
+      console.log('❌ VALIDATION: aadharNumber missing');
+      validationErrors.push('Aadhar number is required');
+    }
     if (!agreeTerms || agreeTerms !== 'true') {
+      console.log('❌ VALIDATION: agreeTerms not true. Value:', agreeTerms, 'Type:', typeof agreeTerms);
       validationErrors.push('You must agree to terms and conditions');
     }
 
     // File validation
-    if (!aadharFile) validationErrors.push('Aadhar document is required');
-    if (!signatureFile) validationErrors.push('Signature is required');
+    if (!aadharFile) {
+      console.log('❌ VALIDATION: aadharFile missing');
+      validationErrors.push('Aadhar document is required');
+    }
+    if (!signatureFile) {
+      console.log('❌ VALIDATION: signatureFile missing');
+      validationErrors.push('Signature is required');
+    }
 
     // Email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (email && !emailRegex.test(email)) {
+      console.log('❌ VALIDATION: email format invalid:', email);
       validationErrors.push('Invalid email format');
     }
 
     // Phone number validation (Indian format)
     const phoneRegex = /^[6-9]\d{9}$/;
     if (phone && !phoneRegex.test(phone)) {
+      console.log('❌ VALIDATION: phone format invalid:', phone);
       validationErrors.push('Invalid phone number. Must be 10 digits starting with 6-9');
     }
 
     // Aadhar number validation (12 digits)
     const aadharRegex = /^\d{12}$/;
     if (aadharNumber && !aadharRegex.test(aadharNumber)) {
+      console.log('❌ VALIDATION: aadhar format invalid:', aadharNumber);
       validationErrors.push('Invalid Aadhar number. Must be 12 digits');
     }
 
@@ -84,17 +139,41 @@ const submitForm = async (req, res) => {
       const age = today.getFullYear() - dob.getFullYear();
       
       if (age < 16 || age > 100) {
+        console.log('❌ VALIDATION: age invalid:', age);
         validationErrors.push('Age must be between 16 and 100 years');
       }
+    }
+
+    console.log('🔍 VALIDATION COMPLETE. Errors found:', validationErrors.length);
+    if (validationErrors.length > 0) {
+      console.log('❌ VALIDATION ERRORS:', validationErrors);
     }
 
     if (validationErrors.length > 0) {
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
-        errors: validationErrors
+        errors: validationErrors,
+        debug: {
+          receivedData: {
+            firstName: !!firstName,
+            lastName: !!lastName,
+            email: !!email,
+            phone: !!phone,
+            courseName: !!courseName,
+            aadharNumber: !!aadharNumber,
+            agreeTerms: agreeTerms,
+            agreeTermsType: typeof agreeTerms,
+            files: {
+              aadhar: !!aadharFile,
+              signature: !!signatureFile
+            }
+          }
+        }
       });
     }
+
+    console.log('✅ VALIDATION PASSED - Checking for existing users...');
 
     // Check for existing user
     const existingUser = await UserForm.findOne({
@@ -111,32 +190,22 @@ const submitForm = async (req, res) => {
       else if (existingUser.phone === phone) duplicateField = 'Phone number';
       else if (existingUser.aadharNumber === aadharNumber) duplicateField = 'Aadhar number';
 
+      console.log('❌ DUPLICATE USER FOUND:', duplicateField);
       return res.status(409).json({
         success: false,
         message: `${duplicateField} already registered. Please use a different ${duplicateField.toLowerCase()}.`
       });
     }
 
-    // 🔥 PREPARE FILE DATA FOR DATABASE
-    const aadharFileData = {
-      originalName: aadharFile.originalname,
-      filename: aadharFile.filename,
-      path: aadharFile.path.replace(/\\/g, '/'),
-      size: aadharFile.size,
-      mimetype: aadharFile.mimetype,
-      uploadDate: new Date()
-    };
+    console.log('✅ NO DUPLICATE USER - Creating file paths...');
 
-    const signatureFileData = {
-      originalName: signatureFile.originalname,
-      filename: signatureFile.filename,
-      path: signatureFile.path.replace(/\\/g, '/'),
-      size: signatureFile.size,
-      mimetype: signatureFile.mimetype,
-      uploadDate: new Date()
-    };
+    // 🔥 FIXED: Store file paths as STRINGS (not objects)
+    const aadharFilePath = `uploads/aadhar/${aadharFile.filename}`;
+    const signatureFilePath = `uploads/signature/${signatureFile.filename}`;
 
-    // Create new user with enhanced file structure
+    console.log('💾 Storing file paths:', { aadharFilePath, signatureFilePath });
+
+    // Create new user with PROPER file path storage
     const newUser = new UserForm({
       firstName,
       lastName,
@@ -148,8 +217,8 @@ const submitForm = async (req, res) => {
       state,
       pincode,
       aadharNumber,
-      aadharFile: aadharFileData,
-      signatureFile: signatureFileData,
+      aadharFile: aadharFilePath,      // ✅ STRING path
+      signatureFile: signatureFilePath, // ✅ STRING path
       agreeTerms: agreeTerms === 'true',
       agreeMarketing: agreeMarketing === 'true',
       courseName,
@@ -157,16 +226,26 @@ const submitForm = async (req, res) => {
       submittedAt: new Date()
     });
 
+    console.log('💾 About to save user:', {
+      firstName,
+      lastName,
+      email,
+      courseName,
+      agreeTerms: agreeTerms === 'true'
+    });
+
     const savedUser = await newUser.save();
 
-    console.log('✅ New registration saved:', {
+    console.log('✅ New registration saved successfully:', {
       id: savedUser._id,
       name: `${firstName} ${lastName}`,
       email: email,
       course: courseName,
-      aadharFile: aadharFileData.filename,
-      signatureFile: signatureFileData.filename
+      aadharFile: aadharFilePath,
+      signatureFile: signatureFilePath
     });
+
+    console.log('🔥 ========== FORM SUBMISSION SUCCESS ==========');
 
     res.status(201).json({
       success: true,
@@ -182,21 +261,23 @@ const submitForm = async (req, res) => {
         submittedAt: savedUser.submittedAt,
         files: {
           aadharFile: {
-            name: aadharFileData.originalName,
-            size: aadharFileData.size,
-            uploadDate: aadharFileData.uploadDate
+            name: aadharFile.originalname,
+            size: aadharFile.size,
+            path: aadharFilePath
           },
           signatureFile: {
-            name: signatureFileData.originalName,
-            size: signatureFileData.size,
-            uploadDate: signatureFileData.uploadDate
+            name: signatureFile.originalname,
+            size: signatureFile.size,
+            path: signatureFilePath
           }
         }
       }
     });
 
   } catch (error) {
-    console.error('❌ Form submission error:', error);
+    console.error('❌ ========== FORM SUBMISSION ERROR ==========');
+    console.error('❌ Error details:', error);
+    console.error('❌ Error stack:', error.stack);
 
     // Handle MongoDB duplicate key errors
     if (error.code === 11000) {
@@ -231,14 +312,11 @@ const submitForm = async (req, res) => {
   }
 };
 
-// 🔥 ENHANCED GET ALL REGISTRATIONS WITH FILE INFO
-// 🔥 FIXED getAllRegistrations function - Replace your existing one
+// Add this new route in your backend (recommended approach):
 
 const getAllRegistrations = async (req, res) => {
   try {
     const {
-      page = 1,
-      limit = 10,
       status,
       courseName,
       search,
@@ -246,7 +324,7 @@ const getAllRegistrations = async (req, res) => {
       sortOrder = 'desc'
     } = req.query;
 
-    // Build filter object
+    // Build filter object (same as before)
     const filter = {};
     
     if (status) {
@@ -269,43 +347,36 @@ const getAllRegistrations = async (req, res) => {
     const sort = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
     const totalCount = await UserForm.countDocuments(filter);
     
+    // 🔥 NO PAGINATION - Get all records
     const registrations = await UserForm.find(filter)
       .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit))
       .lean()
       .select('-__v');
 
-    // 🔥 FIXED PROCESS FILE FIELD FUNCTION
+    // Same file processing as your existing function
     const processFileField = (fileField, registrationId, fieldType) => {
       if (!fileField) return null;
       
       try {
-        // If it's already an object with the correct structure
-        if (typeof fileField === 'object' && fileField !== null && fileField.filename) {
-          return {
-            originalName: fileField.originalName || fileField.filename,
-            filename: fileField.filename,
-            size: fileField.size || 0,
-            uploadDate: fileField.uploadDate || new Date(),
-            downloadUrl: `/api/registration/download/${registrationId}/${fieldType}`,
-            viewUrl: `/api/registration/view/${registrationId}/${fieldType}`
-          };
-        }
-        
-        // If it's a string (old format), convert it safely
         if (typeof fileField === 'string') {
-          const filename = fileField.split('/').pop(); // Get filename from path
+          const filename = path.basename(fileField);
           return {
             originalName: filename,
             filename: filename,
-            size: 0,
-            uploadDate: new Date(),
-            downloadUrl: `/api/registration/download/${registrationId}/${fieldType}`,
-            viewUrl: `/api/registration/view/${registrationId}/${fieldType}`
+            path: fileField,
+            downloadUrl: `/api/download/${registrationId}/${fieldType}`,
+            viewUrl: `/api/view/${registrationId}/${fieldType}`
+          };
+        } else if (typeof fileField === 'object' && fileField !== null) {
+          return {
+            originalName: fileField.originalName || fileField.filename,
+            filename: fileField.filename,
+            path: fileField.path,
+            size: fileField.size || 0,
+            downloadUrl: `/api/download/${registrationId}/${fieldType}`,
+            viewUrl: `/api/view/${registrationId}/${fieldType}`
           };
         }
         
@@ -316,7 +387,6 @@ const getAllRegistrations = async (req, res) => {
       }
     };
 
-    // Enhanced registrations with file information
     const enhancedRegistrations = registrations.map(registration => {
       return {
         ...registration,
@@ -328,345 +398,37 @@ const getAllRegistrations = async (req, res) => {
       };
     });
 
-    const totalPages = Math.ceil(totalCount / parseInt(limit));
-
     res.status(200).json({
       success: true,
-      message: 'Registrations fetched successfully',
+      message: 'All registrations fetched successfully',
       data: {
         registrations: enhancedRegistrations,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages,
-          totalCount,
-          limit: parseInt(limit),
-          hasNext: parseInt(page) < totalPages,
-          hasPrev: parseInt(page) > 1
-        }
+        totalCount,
+        pagination: null // No pagination
       }
     });
 
   } catch (error) {
-    console.error('❌ Error fetching registrations:', error);
+    console.error('❌ Error fetching all registrations:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching registrations',
+      message: 'Error fetching all registrations',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
 
-// Add these functions to your formControllers.js file
+// Add this route:
+// app.get('/api/registration/all-unlimited', getAllRegistrationsNoPagination);
+// OR modify your existing route to accept a special parameter:
+// app.get('/api/registration/all', getAllRegistrations); // existing route with pagination
+// app.get('/api/registration/all-no-limit', getAllRegistrationsNoPagination); // new route
 
-// 🔥 GET SINGLE REGISTRATION BY ID
-const getRegistrationById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const registration = await UserForm.findById(id).select('-__v');
-    
-    if (!registration) {
-      return res.status(404).json({
-        success: false,
-        message: 'Registration not found'
-      });
-    }
-
-    // Enhanced response with file information
-    const regObj = registration.toObject();
-    const enhancedRegistration = {
-      ...regObj,
-      fullName: `${regObj.firstName} ${regObj.lastName}`,
-      fileInfo: {
-        aadharFile: regObj.aadharFile ? {
-          originalName: regObj.aadharFile.originalName,
-          filename: regObj.aadharFile.filename,
-          size: regObj.aadharFile.size,
-          uploadDate: regObj.aadharFile.uploadDate,
-          downloadUrl: `/api/download/${regObj._id}/aadhar`,
-          viewUrl: `/api/view/${regObj._id}/aadhar`
-        } : null,
-        signatureFile: regObj.signatureFile ? {
-          originalName: regObj.signatureFile.originalName,
-          filename: regObj.signatureFile.filename,
-          size: regObj.signatureFile.size,
-          uploadDate: regObj.signatureFile.uploadDate,
-          downloadUrl: `/api/download/${regObj._id}/signature`,
-          viewUrl: `/api/view/${regObj._id}/signature`
-        } : null
-      }
-    };
-
-    res.status(200).json({
-      success: true,
-      message: 'Registration fetched successfully',
-      data: enhancedRegistration
-    });
-
-    console.log(`✅ Registration fetched: ${registration.fullName} (${id})`);
-
-  } catch (error) {
-    console.error('❌ Error fetching registration:', error);
-    
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid registration ID format'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Server error occurred',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
-// 🔥 UPDATE REGISTRATION STATUS
-const updateRegistrationStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, notes } = req.body;
-
-    // Validate status
-    const validStatuses = ['pending', 'approved', 'rejected', 'under-review'];
-    if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
-      });
-    }
-
-    const registration = await UserForm.findById(id);
-    if (!registration) {
-      return res.status(404).json({
-        success: false,
-        message: 'Registration not found'
-      });
-    }
-
-    // Update status and add notes if provided
-    const updateData = {
-      status,
-      statusUpdatedAt: new Date()
-    };
-
-    if (notes) {
-      updateData.adminNotes = notes;
-    }
-
-    const updatedRegistration = await UserForm.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    ).select('-__v');
-
-    res.status(200).json({
-      success: true,
-      message: `Registration status updated to ${status}`,
-      data: {
-        id: updatedRegistration._id,
-        fullName: updatedRegistration.fullName,
-        email: updatedRegistration.email,
-        courseName: updatedRegistration.courseName,
-        status: updatedRegistration.status,
-        statusUpdatedAt: updatedRegistration.statusUpdatedAt,
-        adminNotes: updatedRegistration.adminNotes
-      }
-    });
-
-    console.log(`✅ Status updated: ${registration.fullName} -> ${status}`);
-
-  } catch (error) {
-    console.error('❌ Error updating status:', error);
-    
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid registration ID format'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Server error occurred',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
-// 🔥 GET REGISTRATION STATISTICS
-const getRegistrationStats = async (req, res) => {
-  try {
-    // Get overall statistics
-    const totalRegistrations = await UserForm.countDocuments();
-    const pendingApprovals = await UserForm.countDocuments({ status: 'pending' });
-    const approvedRegistrations = await UserForm.countDocuments({ status: 'approved' });
-    const rejectedRegistrations = await UserForm.countDocuments({ status: 'rejected' });
-    const underReviewRegistrations = await UserForm.countDocuments({ status: 'under-review' });
-
-    // Get course-wise statistics
-    const courseStats = await UserForm.aggregate([
-      {
-        $group: {
-          _id: '$courseName',
-          count: { $sum: 1 },
-          pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-          approved: { $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] } },
-          rejected: { $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] } }
-        }
-      },
-      { $sort: { count: -1 } }
-    ]);
-
-    // Get recent registrations (last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentRegistrations = await UserForm.countDocuments({
-      createdAt: { $gte: sevenDaysAgo }
-    });
-
-    // Get monthly statistics (current month)
-    const currentMonth = new Date();
-    currentMonth.setDate(1);
-    currentMonth.setHours(0, 0, 0, 0);
-    const monthlyRegistrations = await UserForm.countDocuments({
-      createdAt: { $gte: currentMonth }
-    });
-
-    // Calculate conversion rate (approved / total)
-    const conversionRate = totalRegistrations > 0 
-      ? ((approvedRegistrations / totalRegistrations) * 100).toFixed(2)
-      : 0;
-
-    const stats = {
-      overview: {
-        totalRegistrations,
-        pendingApprovals,
-        approvedRegistrations,
-        rejectedRegistrations,
-        underReviewRegistrations,
-        conversionRate: parseFloat(conversionRate)
-      },
-      timeBasedStats: {
-        recentRegistrations, // Last 7 days
-        monthlyRegistrations, // Current month
-      },
-      courseWiseStats: courseStats.map(course => ({
-        courseName: course._id,
-        totalCount: course.count,
-        pending: course.pending,
-        approved: course.approved,
-        rejected: course.rejected,
-        approvalRate: course.count > 0 ? 
-          ((course.approved / course.count) * 100).toFixed(2) : 0
-      })),
-      statusDistribution: {
-        pending: pendingApprovals,
-        approved: approvedRegistrations,
-        rejected: rejectedRegistrations,
-        underReview: underReviewRegistrations
-      }
-    };
-
-    res.status(200).json({
-      success: true,
-      message: 'Statistics fetched successfully',
-      data: stats,
-      generatedAt: new Date()
-    });
-
-    console.log(`📊 Statistics generated: ${totalRegistrations} total registrations`);
-
-  } catch (error) {
-    console.error('❌ Error fetching statistics:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error occurred while fetching statistics',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
-// 🔥 DELETE REGISTRATION
-const deleteRegistration = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const registration = await UserForm.findById(id);
-    if (!registration) {
-      return res.status(404).json({
-        success: false,
-        message: 'Registration not found'
-      });
-    }
-
-    // Store file paths for cleanup
-    const filesToDelete = [];
-    if (registration.aadharFile && registration.aadharFile.path) {
-      filesToDelete.push(path.join(__dirname, '..', registration.aadharFile.path));
-    }
-    if (registration.signatureFile && registration.signatureFile.path) {
-      filesToDelete.push(path.join(__dirname, '..', registration.signatureFile.path));
-    }
-
-    // Delete the registration from database
-    await UserForm.findByIdAndDelete(id);
-
-    // Clean up uploaded files
-    filesToDelete.forEach(filePath => {
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-          console.log(`🗑️ File deleted: ${filePath}`);
-        } catch (fileError) {
-          console.error(`❌ Error deleting file: ${filePath}`, fileError);
-        }
-      }
-    });
-
-    res.status(200).json({
-      success: true,
-      message: `Registration for ${registration.fullName} deleted successfully`,
-      data: {
-        deletedId: id,
-        deletedName: registration.fullName,
-        deletedEmail: registration.email,
-        filesDeleted: filesToDelete.length
-      }
-    });
-
-    console.log(`🗑️ Registration deleted: ${registration.fullName} (${id})`);
-
-  } catch (error) {
-    console.error('❌ Error deleting registration:', error);
-    
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid registration ID format'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Server error occurred while deleting registration',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
-/**
- * Download file with comprehensive path searching and error handling
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object/** */
- 
+// 🔥 FIXED DOWNLOAD FILE FUNCTION
 const downloadFile = async (req, res) => {
   try {
     console.log('=== DOWNLOAD REQUEST DEBUG ===');
     console.log('Params:', req.params);
-    console.log('__dirname:', __dirname);
     
     const { id, fileType } = req.params;
     
@@ -687,14 +449,19 @@ const downloadFile = async (req, res) => {
       name: `${registration.firstName} ${registration.lastName}`
     });
 
-    // Get file field
+    // Get file field based on file type
     let fileField;
-    if (fileType === 'aadhar') {
-      fileField = registration.aadharFile;
-    } else if (fileType === 'signature') {
-      fileField = registration.signatureFile;
-    } else {
-      return res.status(400).json({ error: 'Invalid file type. Use "aadhar" or "signature"' });
+    switch (fileType) {
+      case 'aadhar':
+        fileField = registration.aadharFile;
+        break;
+      case 'signature':
+        fileField = registration.signatureFile;
+        break;
+      default:
+        return res.status(400).json({ 
+          error: 'Invalid file type. Supported types: aadhar, signature' 
+        });
     }
 
     console.log('File field extracted:', fileField);
@@ -706,303 +473,93 @@ const downloadFile = async (req, res) => {
       });
     }
 
-    // Enhanced filename extraction with better logic
-    let storedFileName;
-    let storedFilePath;
-
-    if (typeof fileField === 'object' && fileField !== null) {
-      // Handle object case - check for common properties
-      storedFileName = fileField.filename || fileField.originalname || fileField.name;
-      storedFilePath = fileField.path;
-      
-      if (!storedFileName && fileField.path) {
-        storedFileName = path.basename(fileField.path);
-      }
-    } else if (typeof fileField === 'string' && fileField.trim() !== '') {
-      // Handle string case
-      storedFileName = path.basename(fileField);
-      storedFilePath = fileField;
-    }
-
-    console.log('Extracted filename:', storedFileName);
-    console.log('Extracted file path:', storedFilePath);
-
     // Build the actual file path
     let actualFilePath;
-    
-    if (storedFilePath) {
-      // If we have a stored path, use it
-      if (path.isAbsolute(storedFilePath)) {
-        actualFilePath = storedFilePath;
+    let downloadFilename;
+
+    if (typeof fileField === 'string' && fileField.trim() !== '') {
+      // Handle string case (CORRECT format)
+      if (fileField.startsWith('uploads/')) {
+        // Relative path - join with server directory
+        actualFilePath = path.join(__dirname, '..', fileField);
+        downloadFilename = path.basename(fileField);
       } else {
-        // Relative path - join with base directory
-        actualFilePath = path.join(__dirname, '..', storedFilePath);
+        // Absolute path (legacy)
+        actualFilePath = fileField;
+        downloadFilename = path.basename(fileField);
       }
-    } else if (storedFileName) {
-      // Try to construct path based on filename and file type
-      actualFilePath = path.join(__dirname, '..', 'uploads', fileType, storedFileName);
+    } else if (typeof fileField === 'object' && fileField !== null) {
+      // Handle object case (OLD format - for backward compatibility)
+      downloadFilename = fileField.filename || fileField.originalName || fileField.name;
+      
+      if (fileField.path) {
+        if (fileField.path.startsWith('uploads/')) {
+          actualFilePath = path.join(__dirname, '..', fileField.path);
+        } else {
+          actualFilePath = fileField.path;
+        }
+      } else if (downloadFilename) {
+        // Construct path based on file type and filename
+        actualFilePath = path.join(__dirname, '..', 'uploads', fileType, downloadFilename);
+      }
     }
 
     console.log('Constructed file path:', actualFilePath);
+    console.log('Download filename:', downloadFilename);
 
-    // Check if the constructed path exists
-    let fileExists = false;
-    if (actualFilePath && fs.existsSync(actualFilePath)) {
-      fileExists = true;
-      console.log('✅ File found at constructed path');
-    }
-
-    // If file doesn't exist at constructed path, fall back to search
-    if (!fileExists) {
-      console.log('🔍 File not found at constructed path, searching...');
+    // Check if file exists at the constructed path
+    if (!actualFilePath || !fs.existsSync(actualFilePath)) {
+      console.log('🔍 File not found at primary location, searching...');
       
+      // TARGETED SEARCH STRATEGY
       const baseUploadsPath = path.join(__dirname, '..', 'uploads');
-      console.log('Base uploads path:', baseUploadsPath);
-
-      // Recursive file search function
-      const findFileRecursively = (dirPath, targetFilename) => {
-        try {
-          if (!fs.existsSync(dirPath)) return null;
-          
-          const files = fs.readdirSync(dirPath);
-          
-          for (const file of files) {
-            const filePath = path.join(dirPath, file);
-            const stat = fs.statSync(filePath);
-            
-            if (stat.isDirectory()) {
-              const found = findFileRecursively(filePath, targetFilename);
-              if (found) return found;
-            } else if (file === targetFilename) {
-              return filePath;
-            }
-          }
-        } catch (err) {
-          console.error('Error searching directory:', dirPath, err);
-        }
-        return null;
-      };
-
-      // Search strategies in order of preference
-      const searchStrategies = [];
       
-      // Strategy 1: Exact filename match
-      if (storedFileName) {
-        searchStrategies.push({
-          name: 'exact_filename',
-          search: () => findFileRecursively(baseUploadsPath, storedFileName)
-        });
-      }
-
-      // Strategy 2: User name based matching
-      const userName = `${registration.firstName}_${registration.lastName}`.replace(/\s+/g, '_');
-      const firstName = registration.firstName;
-      const lastName = registration.lastName;
-      
-      const userNameVariations = [
-        `${userName}_${fileType}`,
-        `${userName}_${fileType.charAt(0).toUpperCase() + fileType.slice(1)}`,
-        `${registration.firstName} ${registration.lastName}_${fileType}`,
-        `${firstName.toUpperCase()} ${lastName.toUpperCase()}`,
-        `${firstName}_${lastName}`,
-        `${firstName.toLowerCase()}_${fileType}`,
-        `${lastName.toLowerCase()}_${fileType}`,
-        firstName.toLowerCase(),
-        lastName.toLowerCase()
-      ];
-
-      userNameVariations.forEach((variation, index) => {
-        searchStrategies.push({
-          name: `user_name_${index}`,
-          search: () => {
-            // Search for files containing the variation
-            const searchInDir = (dirPath) => {
-              try {
-                if (!fs.existsSync(dirPath)) return null;
-                
-                const files = fs.readdirSync(dirPath);
-                
-                for (const file of files) {
-                  const filePath = path.join(dirPath, file);
-                  const stat = fs.statSync(filePath);
-                  
-                  if (stat.isDirectory()) {
-                    const found = searchInDir(filePath);
-                    if (found) return found;
-                  } else {
-                    // Case insensitive matching with multiple patterns
-                    const filename_lower = file.toLowerCase();
-                    const variation_lower = variation.toLowerCase();
-                    
-                    // Check if file contains the variation and file type
-                    const containsVariation = filename_lower.includes(variation_lower);
-                    const containsFileType = filename_lower.includes(fileType.toLowerCase());
-                    
-                    // Also check for exact name matches (for names like "MUTHUVEL MURUGAN")
-                    const exactNameMatch = filename_lower.includes(`${registration.firstName.toLowerCase()} ${registration.lastName.toLowerCase()}`);
-                    
-                    if (containsVariation || (exactNameMatch && containsFileType)) {
-                      return filePath;
-                    }
-                  }
-                }
-              } catch (err) {
-                console.error('Error in user name search:', err);
-              }
-              return null;
-            };
-            
-            return searchInDir(baseUploadsPath);
-          }
-        });
-      });
-
-      // Strategy 4: Flexible name and type matching (NEW)
-      searchStrategies.push({
-        name: 'flexible_matching',
-        search: () => {
-          const searchInDir = (dirPath) => {
-            try {
-              if (!fs.existsSync(dirPath)) return null;
-              
-              const files = fs.readdirSync(dirPath);
-              
-              for (const file of files) {
-                const filePath = path.join(dirPath, file);
-                const stat = fs.statSync(filePath);
-                
-                if (stat.isDirectory()) {
-                  const found = searchInDir(filePath);
-                  if (found) return found;
-                } else {
-                  const filename_lower = file.toLowerCase();
-                  const firstName_lower = registration.firstName.toLowerCase();
-                  const lastName_lower = registration.lastName.toLowerCase();
-                  const fileType_lower = fileType.toLowerCase();
-                  
-                  // Multiple flexible matching patterns
-                  const patterns = [
-                    // Pattern 1: Contains both first name and last name and file type
-                    filename_lower.includes(firstName_lower) && 
-                    filename_lower.includes(lastName_lower) && 
-                    filename_lower.includes(fileType_lower),
-                    
-                    // Pattern 2: Contains full name (with space) and file type
-                    filename_lower.includes(`${firstName_lower} ${lastName_lower}`) && 
-                    filename_lower.includes(fileType_lower),
-                    
-                    // Pattern 3: Contains last name and file type (common pattern)
-                    filename_lower.includes(lastName_lower) && 
-                    filename_lower.includes(fileType_lower),
-                    
-                    // Pattern 4: File starts with first name and contains file type
-                    filename_lower.startsWith(firstName_lower) && 
-                    filename_lower.includes(fileType_lower)
-                  ];
-                  
-                  if (patterns.some(pattern => pattern)) {
-                    console.log(`✅ Flexible matching found: ${file}`);
-                    return filePath;
-                  }
-                }
-              }
-            } catch (err) {
-              console.error('Error in flexible search:', err);
-            }
-            return null;
-          };
-          
-          return searchInDir(baseUploadsPath);
-        }
-      });
-      searchStrategies.push({
-        name: 'registration_id',
-        search: () => {
-          const searchInDir = (dirPath) => {
-            try {
-              if (!fs.existsSync(dirPath)) return null;
-              
-              const files = fs.readdirSync(dirPath);
-              
-              for (const file of files) {
-                const filePath = path.join(dirPath, file);
-                const stat = fs.statSync(filePath);
-                
-                if (stat.isDirectory()) {
-                  const found = searchInDir(filePath);
-                  if (found) return found;
-                } else if (file.toLowerCase().includes(id.toLowerCase()) && 
-                          file.toLowerCase().includes(fileType.toLowerCase())) {
-                  return filePath;
-                }
-              }
-            } catch (err) {
-              console.error('Error in ID search:', err);
-            }
-            return null;
-          };
-          
-          return searchInDir(baseUploadsPath);
-        }
-      });
-
-      // Execute search strategies
       let foundPath = null;
-      for (const strategy of searchStrategies) {
-        console.log(`Trying strategy: ${strategy.name}`);
-        foundPath = strategy.search();
-        if (foundPath) {
-          console.log(`✅ Found file using strategy ${strategy.name}: ${foundPath}`);
-          break;
+      
+      // Strategy 1: Look in the specific file type folder
+      const typeFolder = path.join(baseUploadsPath, fileType);
+      if (fs.existsSync(typeFolder)) {
+        console.log(`Searching in ${fileType} folder:`, typeFolder);
+        
+        const files = fs.readdirSync(typeFolder);
+        
+        // Look for files that match this specific user and file type
+        const firstName = registration.firstName.toLowerCase();
+        const lastName = registration.lastName.toLowerCase();
+        
+        for (const file of files) {
+          const filename_lower = file.toLowerCase();
+          
+          // Specific matching - user name AND file type
+          const matchesUser = (
+            filename_lower.includes(firstName) ||
+            filename_lower.includes(lastName) ||
+            filename_lower.includes(`${firstName}_${lastName}`) ||
+            filename_lower.includes(id.toLowerCase())
+          );
+          
+          const matchesType = filename_lower.includes(fileType.toLowerCase());
+          
+          if (matchesUser && (matchesType || downloadFilename === file)) {
+            foundPath = path.join(typeFolder, file);
+            console.log(`✅ Found specific match: ${file}`);
+            downloadFilename = downloadFilename || file;
+            break;
+          }
         }
       }
 
       if (!foundPath) {
-        // List all files for debugging
-        const getAllFiles = (dirPath, filesList = []) => {
-          try {
-            if (!fs.existsSync(dirPath)) return filesList;
-            
-            const files = fs.readdirSync(dirPath);
-            files.forEach(file => {
-              const filePath = path.join(dirPath, file);
-              const stat = fs.statSync(filePath);
-              
-              if (stat.isDirectory()) {
-                getAllFiles(filePath, filesList);
-              } else {
-                filesList.push({
-                  filename: file,
-                  relativePath: path.relative(baseUploadsPath, filePath),
-                  fullPath: filePath
-                });
-              }
-            });
-          } catch (err) {
-            console.error('Error listing files:', err);
-          }
-          return filesList;
-        };
-
-        const allFiles = getAllFiles(baseUploadsPath);
-        
         return res.status(404).json({
-          error: 'File not found anywhere in uploads directory',
+          error: `${fileType} file not found for user`,
           debug: {
-            storedFileName,
-            storedFilePath,
-            constructedPath: actualFilePath,
             registrationInfo: {
               id: registration._id,
               name: `${registration.firstName} ${registration.lastName}`,
               fileType: fileType
             },
-            searchedFor: {
-              exactFilename: storedFileName,
-              userNameVariations,
-              registrationId: id
-            },
-            allAvailableFiles: allFiles.map(f => f.filename)
+            searchedPath: actualFilePath,
+            storedFileField: fileField
           }
         });
       }
@@ -1013,7 +570,7 @@ const downloadFile = async (req, res) => {
     // Final verification
     if (!fs.existsSync(actualFilePath)) {
       return res.status(404).json({
-        error: 'File path exists in search but file is not accessible',
+        error: 'File path found but file is not accessible',
         filePath: actualFilePath
       });
     }
@@ -1029,14 +586,11 @@ const downloadFile = async (req, res) => {
     console.log('✅ Final file verification passed:', {
       path: actualFilePath,
       size: stats.size,
-      isFile: stats.isFile()
+      downloadFilename: downloadFilename
     });
 
-    // Determine filename for download
-    const downloadFilename = storedFileName || path.basename(actualFilePath);
-
     // Set appropriate content type
-    const ext = path.extname(downloadFilename).toLowerCase();
+    const ext = path.extname(downloadFilename || actualFilePath).toLowerCase();
     let contentType = 'application/octet-stream';
     
     switch (ext) {
@@ -1090,10 +644,63 @@ const downloadFile = async (req, res) => {
   }
 };
 
+// Other functions remain the same...
+const getRegistrationById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const registration = await UserForm.findById(id).select('-__v');
+    
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Registration not found'
+      });
+    }
 
+    const regObj = registration.toObject();
+    const enhancedRegistration = {
+      ...regObj,
+      fullName: `${regObj.firstName} ${regObj.lastName}`,
+      fileInfo: {
+        aadharFile: regObj.aadharFile ? {
+          path: regObj.aadharFile,
+          downloadUrl: `/api/download/${regObj._id}/aadhar`,
+          viewUrl: `/api/view/${regObj._id}/aadhar`
+        } : null,
+        signatureFile: regObj.signatureFile ? {
+          path: regObj.signatureFile,
+          downloadUrl: `/api/download/${regObj._id}/signature`,
+          viewUrl: `/api/view/${regObj._id}/signature`
+        } : null
+      }
+    };
 
+    res.status(200).json({
+      success: true,
+      message: 'Registration fetched successfully',
+      data: enhancedRegistration
+    });
 
-// 🔥 NEW VIEW FILE FUNCTION
+  } catch (error) {
+    console.error('❌ Error fetching registration:', error);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid registration ID format'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error occurred',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// VIEW FILE FUNCTION
 const viewFile = async (req, res) => {
   try {
     const { id, fileType } = req.params;
@@ -1106,69 +713,56 @@ const viewFile = async (req, res) => {
       });
     }
 
-    let fileData;
-    if (fileType === 'aadhar' && registration.aadharFile) {
-      fileData = registration.aadharFile;
-    } else if (fileType === 'signature' && registration.signatureFile) {
-      fileData = registration.signatureFile;
+    let fileField;
+    if (fileType === 'aadhar') {
+      fileField = registration.aadharFile;
+    } else if (fileType === 'signature') {
+      fileField = registration.signatureFile;
     } else {
+      return res.status(404).json({
+        success: false,
+        message: `Invalid file type: ${fileType}`
+      });
+    }
+
+    if (!fileField) {
       return res.status(404).json({
         success: false,
         message: `${fileType} file not found`
       });
     }
 
-    // Debug logging
-    console.log('🔍 File data:', fileData);
-    
-    // Try different path constructions
     let filePath;
     
-    // Option 1: If path is relative to project root
-    filePath = path.join(process.cwd(), fileData.path);
-    
-    // Option 2: If path is relative to current directory
-    // filePath = path.join(__dirname, '..', fileData.path);
-    
-    // Option 3: If files are in uploads folder
-    // filePath = path.join(__dirname, '..', 'uploads', fileData.filename);
-    
-    console.log('🔍 Constructed file path:', filePath);
-    console.log('🔍 File exists:', fs.existsSync(filePath));
+    if (typeof fileField === 'string') {
+      // New format - string path
+      if (fileField.startsWith('uploads/')) {
+        filePath = path.join(__dirname, '..', fileField);
+      } else {
+        filePath = fileField;
+      }
+    } else if (typeof fileField === 'object' && fileField.path) {
+      // Old format - object with path
+      if (fileField.path.startsWith('uploads/')) {
+        filePath = path.join(__dirname, '..', fileField.path);
+      } else {
+        filePath = fileField.path;
+      }
+    }
     
     if (!fs.existsSync(filePath)) {
-      // Try alternative paths
-      const alternativePaths = [
-        path.join(__dirname, '..', 'uploads', fileData.filename),
-        path.join(process.cwd(), 'uploads', fileData.filename),
-        path.join(__dirname, '..', fileData.filename),
-        fileData.path // If it's already absolute
-      ];
-      
-      let foundPath = null;
-      for (const altPath of alternativePaths) {
-        console.log('🔍 Trying path:', altPath);
-        if (fs.existsSync(altPath)) {
-          foundPath = altPath;
-          break;
+      return res.status(404).json({
+        success: false,
+        message: 'File not found on server',
+        debug: {
+          searchedPath: filePath,
+          fileField: fileField
         }
-      }
-      
-      if (!foundPath) {
-        return res.status(404).json({
-          success: false,
-          message: 'File not found on server',
-          debug: {
-            searchedPath: filePath,
-            fileData: fileData
-          }
-        });
-      }
-      
-      filePath = foundPath;
+      });
     }
 
-    const ext = path.extname(fileData.filename).toLowerCase();
+    const filename = path.basename(filePath);
+    const ext = path.extname(filename).toLowerCase();
     let contentType = 'application/octet-stream';
     
     if (ext === '.pdf') contentType = 'application/pdf';
@@ -1177,9 +771,9 @@ const viewFile = async (req, res) => {
 
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', 'inline');
-    res.sendFile(path.resolve(filePath)); // Use absolute path
+    res.sendFile(path.resolve(filePath));
     
-    console.log(`👀 File viewed: ${fileData.originalName} for ${registration.fullName}`);
+    console.log(`👀 File viewed: ${filename} for ${registration.firstName} ${registration.lastName}`);
 
   } catch (error) {
     console.error('❌ View error:', error);
@@ -1190,14 +784,12 @@ const viewFile = async (req, res) => {
     });
   }
 };
-// Updated module.exports at the end of your formControllers.js file
+
+// Export all functions
 module.exports = {
   submitForm,
   getAllRegistrations,
   getRegistrationById,
-  updateRegistrationStatus,
-  getRegistrationStats,
   downloadFile,
-  viewFile,
-  deleteRegistration
+  viewFile
 };
