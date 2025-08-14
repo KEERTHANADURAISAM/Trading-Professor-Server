@@ -117,15 +117,7 @@ const copyTradingApplicationSchema = new mongoose.Schema({
   },
   
   // Agreement Flags
-  disclaimerAccepted: {
-    type: Boolean,
-    default: false
-  },
-  riskWarningAccepted: {
-    type: Boolean,
-    default: false
-  },
-  termsAccepted: {
+   termsAccepted: {
     type: Boolean,
     required: [true, 'Terms and conditions must be accepted'],
     validate: {

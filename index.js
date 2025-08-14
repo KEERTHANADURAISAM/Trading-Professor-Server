@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const registrationRoutes = require('./routes/formRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
-const tradingFormRoutes = require('./routes/CopyTrading');
+const tradingFormRoutes = require('./routes/tradingFormRoutes');
 
 dotenv.config();
 
