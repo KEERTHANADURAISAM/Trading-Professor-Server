@@ -51,7 +51,7 @@ const uploadFiles = upload.fields([
 // Import controller (create this if it doesn't exist)
 let copyTradingController;
 try {
-  copyTradingController = require('../controller/CopyTradingController');
+  copyTradingController = require('../controllers/copyTradingController');
 } catch (error) {
   console.error('❌ copyTradingController not found, creating fallback handlers');
   

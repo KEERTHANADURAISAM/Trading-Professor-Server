@@ -1,5 +1,4 @@
-// ========== MONGOOSE SCHEMA ==========
-// models/CopyTradingApplication.js
+// models/CopyTradingForm.js
 const mongoose = require('mongoose');
 
 const copyTradingApplicationSchema = new mongoose.Schema({

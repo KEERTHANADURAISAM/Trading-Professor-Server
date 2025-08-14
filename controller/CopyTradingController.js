@@ -9,32 +9,58 @@ exports.createApplication = async (req, res) => {
     console.log('📝 Received form data:', req.body);
     console.log('📁 Received files:', req.files);
 
-    // Validate required files (multer middleware should have handled this)
-    if (!req.files || !req.files.aadharFile || !req.files.signatureFile) {
-      return res.status(400).json({
-        success: false,
-        message: 'Both Aadhar and signature files are required'
-      });
+    // Check if files exist (adjust field names to match your form)
+    const hasFiles = req.files && (req.files.aadharFile || req.files.signatureFile || req.files.idProof || req.files.addressProof);
+    
+    if (!hasFiles) {
+      console.log('⚠️ No files received, but continuing...');
     }
 
     // Prepare application data
     const applicationData = {
-      ...req.body,
-      aadharFile: {
-        filename: req.files.aadharFile[0].filename,
-        originalName: req.files.aadharFile[0].originalname,
-        path: req.files.aadharFile[0].path,
-        size: req.files.aadharFile[0].size,
-        mimetype: req.files.aadharFile[0].mimetype
-      },
-      signatureFile: {
-        filename: req.files.signatureFile[0].filename,
-        originalName: req.files.signatureFile[0].originalname,
-        path: req.files.signatureFile[0].path,
-        size: req.files.signatureFile[0].size,
-        mimetype: req.files.signatureFile[0].mimetype
-      }
+      ...req.body
     };
+
+    // Handle file uploads - flexible field names
+    if (req.files) {
+      // Handle aadharFile or idProof
+      if (req.files.aadharFile && req.files.aadharFile[0]) {
+        applicationData.aadharFile = {
+          filename: req.files.aadharFile[0].filename,
+          originalName: req.files.aadharFile[0].originalname,
+          path: req.files.aadharFile[0].path,
+          size: req.files.aadharFile[0].size,
+          mimetype: req.files.aadharFile[0].mimetype
+        };
+      } else if (req.files.idProof && req.files.idProof[0]) {
+        applicationData.aadharFile = {
+          filename: req.files.idProof[0].filename,
+          originalName: req.files.idProof[0].originalname,
+          path: req.files.idProof[0].path,
+          size: req.files.idProof[0].size,
+          mimetype: req.files.idProof[0].mimetype
+        };
+      }
+
+      // Handle signatureFile or addressProof  
+      if (req.files.signatureFile && req.files.signatureFile[0]) {
+        applicationData.signatureFile = {
+          filename: req.files.signatureFile[0].filename,
+          originalName: req.files.signatureFile[0].originalname,
+          path: req.files.signatureFile[0].path,
+          size: req.files.signatureFile[0].size,
+          mimetype: req.files.signatureFile[0].mimetype
+        };
+      } else if (req.files.addressProof && req.files.addressProof[0]) {
+        applicationData.signatureFile = {
+          filename: req.files.addressProof[0].filename,
+          originalName: req.files.addressProof[0].originalname,
+          path: req.files.addressProof[0].path,
+          size: req.files.addressProof[0].size,
+          mimetype: req.files.addressProof[0].mimetype
+        };
+      }
+    }
 
     console.log('💾 Saving application data:', applicationData);
 
@@ -58,7 +84,8 @@ exports.createApplication = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
-        errors: errors
+        errors: errors,
+        receivedData: req.body
       });
     }
 
@@ -73,7 +100,8 @@ exports.createApplication = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -120,6 +148,7 @@ exports.getAllApplications = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('❌ Error in getAllApplications:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -146,6 +175,7 @@ exports.getApplication = async (req, res) => {
       data: application
     });
   } catch (error) {
+    console.error('❌ Error in getApplication:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -184,6 +214,7 @@ exports.updateApplicationStatus = async (req, res) => {
       data: application
     });
   } catch (error) {
+    console.error('❌ Error in updateApplicationStatus:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -223,6 +254,7 @@ exports.deleteApplication = async (req, res) => {
       message: 'Application deleted successfully'
     });
   } catch (error) {
+    console.error('❌ Error in deleteApplication:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -246,14 +278,14 @@ exports.downloadFile = async (req, res) => {
     }
 
     let fileInfo;
-    if (fileType === 'aadhar') {
+    if (fileType === 'aadhar' || fileType === 'idProof') {
       fileInfo = application.aadharFile;
-    } else if (fileType === 'signature') {
+    } else if (fileType === 'signature' || fileType === 'addressProof') {
       fileInfo = application.signatureFile;
     } else {
       return res.status(400).json({
         success: false,
-        message: 'Invalid file type'
+        message: 'Invalid file type. Use: aadhar, signature, idProof, or addressProof'
       });
     }
 
@@ -276,6 +308,7 @@ exports.downloadFile = async (req, res) => {
 
     res.download(fileInfo.path, fileInfo.originalName);
   } catch (error) {
+    console.error('❌ Error in downloadFile:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -299,14 +332,14 @@ exports.viewFile = async (req, res) => {
     }
 
     let fileInfo;
-    if (fileType === 'aadhar') {
+    if (fileType === 'aadhar' || fileType === 'idProof') {
       fileInfo = application.aadharFile;
-    } else if (fileType === 'signature') {
+    } else if (fileType === 'signature' || fileType === 'addressProof') {
       fileInfo = application.signatureFile;
     } else {
       return res.status(400).json({
         success: false,
-        message: 'Invalid file type'
+        message: 'Invalid file type. Use: aadhar, signature, idProof, or addressProof'
       });
     }
 
@@ -329,6 +362,7 @@ exports.viewFile = async (req, res) => {
 
     res.sendFile(path.resolve(fileInfo.path));
   } catch (error) {
+    console.error('❌ Error in viewFile:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -361,6 +395,7 @@ exports.getStatistics = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('❌ Error in getStatistics:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
