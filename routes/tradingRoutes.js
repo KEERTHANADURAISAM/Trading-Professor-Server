@@ -9,7 +9,7 @@ const {
   updateApplicationStatus,
   deleteApplication,
   getApplicationStats
-} = require('../controller/copyTradingController');
+} = require('../controller/CopyTradingController');
 
 const router = express.Router();
 
