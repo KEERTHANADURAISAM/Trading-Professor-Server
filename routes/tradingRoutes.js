@@ -1,75 +1,87 @@
-// routes/copyTradingRoutes.js
+// routes/copyTrading.js
 const express = require('express');
-const {
-  uploadFields,
-  createApplication,
-  getAllApplications,
-  getApplicationById,
-  updateApplication,
-  updateApplicationStatus,
-  deleteApplication,
-  getApplicationStats
-} = require('../controller/CopyTradingController');
-
 const router = express.Router();
+const copyTradingController = require('../controller/CopyTradingController');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
-// Temporary dummy middleware (replace with actual middleware later)
-const dummyAuth = (req, res, next) => {
-  // For now, simulate a logged-in admin user
-  req.user = { 
-    id: 'dummy-admin-id', 
-    email: 'admin@example.com', 
-    role: 'admin' 
-  };
-  next();
-};
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, '../uploads/documents');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log('📁 Created uploads directory:', uploadDir);
+}
 
-const dummyValidation = (req, res, next) => {
-  // Skip validation for now
-  next();
-};
-
-// Public routes
-router.post('/', uploadFields, dummyValidation, createApplication);
-
-// Protected routes (require authentication)
-router.use(dummyAuth); // All routes after this middleware require authentication
-
-// User can access their own application
-router.get('/my-application', async (req, res) => {
-  try {
-    const CopyTradingApplication = require('../models/CopyTradingForm');
-    const application = await CopyTradingApplication
-      .findOne({ email: req.user.email })
-      .populate('reviewedBy', 'name email');
-
-    if (!application) {
-      return res.status(404).json({
-        success: false,
-        message: 'No application found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: application
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
-// Admin routes (for now, no restriction - add restrictTo middleware later)
-router.get('/stats', getApplicationStats);
-router.get('/', getAllApplications);
-router.get('/:id', getApplicationById);
-router.put('/:id', uploadFields, dummyValidation, updateApplication);
-router.patch('/:id/status', updateApplicationStatus);
-router.delete('/:id', deleteApplication);
+const fileFilter = (req, file, cb) => {
+  console.log(`🔍 Processing file: ${file.originalname} for field: ${file.fieldname}`);
+  
+  if (file.fieldname === 'aadharFile') {
+    // Allow PDF, JPG, JPEG, PNG for Aadhar
+    if (file.mimetype === 'application/pdf' || 
+        file.mimetype === 'image/jpeg' || 
+        file.mimetype === 'image/jpg' || 
+        file.mimetype === 'image/png') {
+      console.log('✅ Aadhar file accepted');
+      cb(null, true);
+    } else {
+      console.log('❌ Aadhar file rejected - invalid type');
+      cb(new Error('Aadhar file must be PDF, JPG, JPEG, or PNG'), false);
+    }
+  } else if (file.fieldname === 'signatureFile') {
+    // Allow only image files for signature
+    if (file.mimetype === 'image/jpeg' || 
+        file.mimetype === 'image/jpg' || 
+        file.mimetype === 'image/png') {
+      console.log('✅ Signature file accepted');
+      cb(null, true);
+    } else {
+      console.log('❌ Signature file rejected - invalid type');
+      cb(new Error('Signature file must be JPG, JPEG, or PNG'), false);
+    }
+  } else {
+    console.log('❌ Unexpected file field:', file.fieldname);
+    cb(new Error('Unexpected file field'), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: fileFilter
+});
+
+// Middleware to handle file uploads
+const uploadFiles = upload.fields([
+  { name: 'aadharFile', maxCount: 1 },
+  { name: 'signatureFile', maxCount: 1 }
+]);
+
+// Public routes - Apply multer middleware here
+router.post('/applications', uploadFiles, copyTradingController.createApplication);
+
+// Admin routes (add authentication middleware as needed)
+router.get('/applications', copyTradingController.getAllApplications);
+router.get('/applications/statistics', copyTradingController.getStatistics);
+router.get('/applications/:id', copyTradingController.getApplication);
+router.put('/applications/:id/status', copyTradingController.updateApplicationStatus);
+router.delete('/applications/:id', copyTradingController.deleteApplication);
+
+// File routes
+router.get('/applications/:id/files/:fileType/download', copyTradingController.downloadFile);
+router.get('/applications/:id/files/:fileType/view', copyTradingController.viewFile);
 
 module.exports = router;
